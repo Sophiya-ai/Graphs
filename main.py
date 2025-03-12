@@ -25,23 +25,23 @@ class GraphVisualizationApp:
         # Интерфейс
         self.create_widgets()
 
+    # Создание холста для отображения графа
     def create_canvas(self):
-        """Создает холст для отображения графа."""
         self.figure = plt.Figure(figsize=(6, 6))
         self.ax = self.figure.add_subplot(111)
         self.canvas = FigureCanvasTkAgg(self.figure, master=self.root)
         self.canvas.get_tk_widget().pack(side=tk.RIGHT, padx=10, pady=10)
 
+    # Инициализация графа в зависимости от типа (орграф/неорграф)
     def reset_graph(self):
-        """Инициализирует граф в зависимости от типа (орграф/неорграф)."""
         if self.is_directed:
             self.graph = nx.DiGraph()
         else:
             self.graph = nx.Graph()
         self.draw_graph()
 
+    # Создание элементов управления на интерфейсе
     def create_widgets(self):
-        """Создает элементы управления в интерфейсе."""
         control_frame = tk.Frame(self.root)
         control_frame.pack(side=tk.LEFT, padx=10, pady=10)
 
@@ -113,7 +113,7 @@ class GraphVisualizationApp:
                     u, v, weight = edge_input.split()
                     weight = float(weight)
                     self.graph.add_edge(u, v, weight=weight)
-                    self.draw_graph()
+                    self.draw_graph()  # Без параметра highlight_edges
                 except ValueError:
                     messagebox.showerror("Ошибка", "Неверный формат ввода!")
         else:
@@ -122,7 +122,7 @@ class GraphVisualizationApp:
                 try:
                     u, v = edge_input.split()
                     self.graph.add_edge(u, v)
-                    self.draw_graph()
+                    self.draw_graph()  # Без параметра highlight_edges
                 except ValueError:
                     messagebox.showerror("Ошибка", "Неверный формат ввода!")
 
@@ -202,17 +202,34 @@ class GraphVisualizationApp:
                     messagebox.showwarning("Предупреждение", "Выбранный алгоритм недоступен!")
                     return
 
+                # Получаем список ребер пути
+                path_edges = [(path[i], path[i + 1]) for i in range(len(path) - 1)]
+
+                # Рисуем граф с выделенными ребрами
+                self.draw_graph(highlight_edges=path_edges)
+
                 messagebox.showinfo("Путь", f"Кратчайший путь ({algorithm}): {path}")
             except nx.NetworkXNoPath:
                 messagebox.showwarning("Предупреждение", "Пути между вершинами не существует!")
             except Exception as e:
                 messagebox.showerror("Ошибка", f"Произошла ошибка: {str(e)}")
 
-    def draw_graph(self):
+
+    def draw_graph(self, highlight_edges=None):
         self.ax.clear()
         pos = nx.spring_layout(self.graph)
+
+        # Определяем цвета ребер
+        edge_colors = []
+        for u, v in self.graph.edges:
+            if highlight_edges and ((u, v) in highlight_edges or (v, u) in highlight_edges):
+                edge_colors.append('red')  # Выделенные ребра красным
+            else:
+                edge_colors.append('black')  # Остальные ребра черным
+
+        # Отображаем граф
         edge_labels = {(u, v): d['weight'] for u, v, d in self.graph.edges(data=True)} if self.is_weighted else None
-        nx.draw(self.graph, pos, with_labels=True, ax=self.ax)
+        nx.draw(self.graph, pos, with_labels=True, ax=self.ax, edge_color=edge_colors)
         if self.is_weighted:
             nx.draw_networkx_edge_labels(self.graph, pos, edge_labels=edge_labels, ax=self.ax)
         self.canvas.draw()
