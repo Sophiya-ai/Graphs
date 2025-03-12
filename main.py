@@ -1,9 +1,9 @@
 import tkinter as tk
 from tkinter import messagebox, simpledialog
+from tkinter.ttk import Combobox
 import networkx as nx
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-
 
 
 class GraphVisualizationApp:
@@ -16,11 +16,32 @@ class GraphVisualizationApp:
         self.is_directed = False
         self.is_weighted = False
 
+        # Создаем холст для отображения графа
+        self.create_canvas()
+
+        # Сброс графа после создания холста
+        self.reset_graph()
+
         # Интерфейс
         self.create_widgets()
 
+    def create_canvas(self):
+        """Создает холст для отображения графа."""
+        self.figure = plt.Figure(figsize=(6, 6))
+        self.ax = self.figure.add_subplot(111)
+        self.canvas = FigureCanvasTkAgg(self.figure, master=self.root)
+        self.canvas.get_tk_widget().pack(side=tk.RIGHT, padx=10, pady=10)
+
+    def reset_graph(self):
+        """Инициализирует граф в зависимости от типа (орграф/неорграф)."""
+        if self.is_directed:
+            self.graph = nx.DiGraph()
+        else:
+            self.graph = nx.Graph()
+        self.draw_graph()
+
     def create_widgets(self):
-        # Фрейм управления
+        """Создает элементы управления в интерфейсе."""
         control_frame = tk.Frame(self.root)
         control_frame.pack(side=tk.LEFT, padx=10, pady=10)
 
@@ -38,6 +59,13 @@ class GraphVisualizationApp:
         tk.Checkbutton(control_frame, text="Взвешенный", variable=self.weight_var,
                        command=self.update_weights).pack(anchor=tk.W)
 
+        # Выбор алгоритма
+        tk.Label(control_frame, text="Алгоритм поиска пути:").pack(anchor=tk.W)
+        self.algorithm_var = tk.StringVar(value="Dijkstra")
+        algorithms = ["Dijkstra", "BFS", "Bellman-Ford"]
+        self.algorithm_combo = Combobox(control_frame, textvariable=self.algorithm_var, values=algorithms, state="readonly")
+        self.algorithm_combo.pack(fill=tk.X, pady=5)
+
         # Кнопки управления
         tk.Button(control_frame, text="Добавить вершину", command=self.add_node).pack(fill=tk.X, pady=5)
         tk.Button(control_frame, text="Добавить ребро", command=self.add_edge).pack(fill=tk.X, pady=5)
@@ -48,12 +76,6 @@ class GraphVisualizationApp:
         tk.Button(control_frame, text="Построить матрицу инцидентности", command=self.show_incidence_matrix).pack(
             fill=tk.X, pady=5)
         tk.Button(control_frame, text="Поиск пути", command=self.find_path).pack(fill=tk.X, pady=5)
-
-        # Холст для отображения графа
-        self.figure = plt.Figure(figsize=(6, 6))
-        self.ax = self.figure.add_subplot(111)
-        self.canvas = FigureCanvasTkAgg(self.figure, master=self.root)
-        self.canvas.get_tk_widget().pack(side=tk.RIGHT, padx=10, pady=10)
 
     def update_graph_type(self):
         graph_type = self.graph_type_var.get()
@@ -66,13 +88,6 @@ class GraphVisualizationApp:
     def update_weights(self):
         self.is_weighted = self.weight_var.get()
         self.reset_graph()
-
-    def reset_graph(self):
-        if self.is_directed:
-            self.graph = nx.DiGraph()
-        else:
-            self.graph = nx.Graph()
-        self.draw_graph()
 
     def add_node(self):
         if self.graph is None:  # Проверяем, инициализирован ли граф
@@ -169,18 +184,29 @@ class GraphVisualizationApp:
                 messagebox.showwarning("Предупреждение", "Одна из вершин не существует!")
                 return
 
-            if self.is_weighted:
-                try:
-                    path = nx.dijkstra_path(self.graph, start_node, end_node, weight='weight')
-                    messagebox.showinfo("Путь", f"Кратчайший путь: {path}")
-                except nx.NetworkXNoPath:
-                    messagebox.showwarning("Предупреждение", "Пути между вершинами не существует!")
-            else:
-                try:
-                    path = nx.shortest_path(self.graph, start_node, end_node)
-                    messagebox.showinfo("Путь", f"Кратчайший путь: {path}")
-                except nx.NetworkXNoPath:
-                    messagebox.showwarning("Предупреждение", "Пути между вершинами не существует!")
+            algorithm = self.algorithm_var.get()
+            try:
+                if algorithm == "Dijkstra":
+                    if self.is_weighted:
+                        path = nx.dijkstra_path(self.graph, start_node, end_node, weight='weight')
+                    else:
+                        path = nx.dijkstra_path(self.graph, start_node, end_node)
+                elif algorithm == "BFS":
+                    path = nx.shortest_path(self.graph, start_node, end_node, method='bfs')
+                elif algorithm == "Bellman-Ford":
+                    if self.is_weighted:
+                        path = nx.bellman_ford_path(self.graph, start_node, end_node, weight='weight')
+                    else:
+                        path = nx.bellman_ford_path(self.graph, start_node, end_node)
+                else:
+                    messagebox.showwarning("Предупреждение", "Выбранный алгоритм недоступен!")
+                    return
+
+                messagebox.showinfo("Путь", f"Кратчайший путь ({algorithm}): {path}")
+            except nx.NetworkXNoPath:
+                messagebox.showwarning("Предупреждение", "Пути между вершинами не существует!")
+            except Exception as e:
+                messagebox.showerror("Ошибка", f"Произошла ошибка: {str(e)}")
 
     def draw_graph(self):
         self.ax.clear()
